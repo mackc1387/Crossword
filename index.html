@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Daily Mini Crossword</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f8f8f8; }
+    .container { max-width: 400px; margin: 30px auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px #0001; }
+    .crossword-grid { display: grid; grid-template-columns: repeat(5, 40px); grid-template-rows: repeat(5, 40px); gap: 2px; margin-bottom: 16px; }
+    .cell { width: 40px; height: 40px; text-align: center; font-size: 22px; border: 2px solid #222; background: #fff; outline: none; }
+    .cell:focus { border-color: #1976d2; }
+    .clues { display: flex; gap: 20px; }
+    .clues-list { font-size: 14px; }
+    .clues-list strong { display: block; margin-bottom: 4px; }
+    .check-btn, .reset-btn { margin: 8px 4px 0 0; padding: 6px 16px; font-size: 15px; border: none; border-radius: 4px; background: #1976d2; color: #fff; cursor: pointer; }
+    .reset-btn { background: #888; }
+    .result { margin-top: 10px; font-weight: bold; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h2>Daily Mini Crossword</h2>
+  <div id="crossword" class="crossword-grid"></div>
+  <button class="check-btn" onclick="checkCrossword()">Check</button>
+  <button class="reset-btn" onclick="resetGrid()">Reset</button>
+  <div id="result" class="result"></div>
+  <div class="clues">
+    <div class="clues-list" id="across-clues"></div>
+    <div class="clues-list" id="down-clues"></div>
+  </div>
+</div>
+<script>
+// --- Word bank: add as many as you like! ---
+const WORDS = [
+  { word: "APPLE", clue: "Fruit that keeps the doctor away" },
+  { word: "EARTH", clue: "Our home planet" },
+  { word: "MOUSE", clue: "Computer input device or a small rodent" },
+  { word: "PLANE", clue: "Flies in the sky, carries people" },
+  { word: "SHEET", clue: "Bed covering or a piece of paper" },
+  { word: "HEART", clue: "Organ that pumps blood" },
+  { word: "LEMON", clue: "Sour yellow fruit" },
+  { word: "NURSE", clue: "Hospital helper" },
+  { word: "TEACH", clue: "What a good instructor does" },
+  { word: "CHAIR", clue: "You sit on it" },
+  { word: "ROBIN", clue: "Red-breasted bird" },
+  { word: "SNAKE", clue: "Legless reptile" },
+  { word: "WATER", clue: "You drink it" },
+  { word: "BRAIN", clue: "It thinks for you" },
+  { word: "GRAPE", clue: "Wine starts here" }
+];
+
+// --- Deterministic shuffle for daily puzzle ---
+function seededRandom(seed) {
+  let x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+function getTodaySeed() {
+  const d = new Date();
+  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+}
+function dailyShuffle(arr) {
+  let a = arr.slice();
+  let seed = getTodaySeed();
+  for (let i = a.length - 1; i > 0; i--) {
+    let j = Math.floor(seededRandom(seed + i) * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// --- Build today's puzzle: 5x5, all white squares, 5 across, 5 down ---
+function buildPuzzle() {
+  const shuffled = dailyShuffle(WORDS);
+  // Use first 5 for across, next 5 for down
+  const across = shuffled.slice(0, 5);
+  const down = shuffled.slice(5, 10);
+
+  // Build grid: fill across words left to right, one per row
+  let grid = Array.from({length: 5}, () => Array(5).fill(""));
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < 5; c++) {
+      grid[r][c] = across[r].word[c];
+    }
+  }
+  // Overwrite with down words (so both across and down are valid)
+  for (let c = 0; c < 5; c++) {
+    for (let r = 0; r < 5; r++) {
+      grid[r][c] = down[c].word[r];
+    }
+  }
+  return { grid, across, down };
+}
+
+let { grid, across, down } = buildPuzzle();
+let userGrid = Array.from({length: 5}, () => Array(5).fill(""));
+
+// --- Render grid ---
+function renderGrid() {
+  const crossword = document.getElementById("crossword");
+  crossword.innerHTML = "";
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < 5; c++) {
+      const inp = document.createElement("input");
+      inp.type = "text";
+      inp.maxLength = 1;
+      inp.className = "cell";
+      inp.value = userGrid[r][c];
+      inp.dataset.row = r;
+      inp.dataset.col = c;
+      inp.oninput = function() {
+        this.value = this.value.toUpperCase().replace(/[^A-Z]/g, "");
+        userGrid[r][c] = this.value;
+      };
+      crossword.appendChild(inp);
+    }
+  }
+}
+renderGrid();
+
+// --- Render clues ---
+function renderClues() {
+  let acrossHtml = "<strong>Across</strong>";
+  across.forEach((w, i) => {
+    acrossHtml += `<div>${i+1}. ${w.clue}</div>`;
+  });
+  let downHtml = "<strong>Down</strong>";
+  down.forEach((w, i) => {
+    downHtml += `<div>${i+1}. ${w.clue}</div>`;
+  });
+  document.getElementById("across-clues").innerHTML = acrossHtml;
+  document.getElementById("down-clues").innerHTML = downHtml;
+}
+renderClues();
+
+// --- Check answers ---
+function checkCrossword() {
+  let correct = true;
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < 5; c++) {
+      if ((userGrid[r][c] || "").toUpperCase() !== grid[r][c]) {
+        correct = false;
+      }
+    }
+  }
+  document.getElementById("result").textContent = correct ? "🎉 Correct! Well done!" : "Some answers are incorrect. Try again!";
+}
+
+// --- Reset grid ---
+function resetGrid() {
+  userGrid = Array.from({length: 5}, () => Array(5).fill(""));
+  renderGrid();
+  document.getElementById("result").textContent = "";
+}
+
+</script>
+</body>
+</html>
